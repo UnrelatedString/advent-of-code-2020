@@ -7,25 +7,25 @@ ls = [l for l in iter(input,'')]
 
 #lgs = '\n'.join(l).rstrip('\n').split('\n\n')
 
-p, o = 0, 1
+p, w = 0, 10+1j
 
 for l in ls:
     i, n = l[0], l[1:]
     for _ in range(int(n)):
         if i == 'E':
-            p += 1
+            w += 1
         elif i == 'S':
-            p += -1j
+            w += -1j
         elif i == 'W':
-            p += -1
+            w += -1
         elif i == 'N':
-            p += 1j
+            w += 1j
         elif i == 'F':
-            p += o
+            p += w
     if i == 'L':
-        o *= e**(1j*radians(int(n)))
+        w *= e**(1j*radians(int(n)))
     elif i == 'R':
-        o *= e**(-1j*radians(int(n)))
+        w *= e**(-1j*radians(int(n)))
 
 print(abs(p.real)+abs(p.imag))
         
