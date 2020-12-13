@@ -2,7 +2,12 @@ from functools import *
 from itertools import *
 import re
 
-ls = [l for l in iter(input,'')]
+n = int(input())
+ids = [int(x) for x in input().split(',') if x != 'x']
 
-#lgs = '\n'.join(l).rstrip('\n').split('\n\n')
-
+x = n
+while all(x % i for i in ids):
+    x += 1
+for i in ids:
+    if not x%i:
+        print(i*(x-n))
