@@ -2,7 +2,17 @@ from functools import *
 from itertools import *
 import re
 
-ls = [l for l in iter(input,'')]
+ns = eval(f'[{input()}]')
 
-#lgs = '\n'.join(l).rstrip('\n').split('\n\n')
+for _ in range(len(ns),2020):
+    n = ns[-1]
+    i = len(ns)
+    if n in ns[:-1]:
+        for j in range(2,i+1):
+            if ns[-j] == n:
+                ns.append(j-1)
+                break
+    else:
+        ns.append(0)
 
+print(ns[2019])
