@@ -13,7 +13,7 @@ for l in rls:
 
 def match(m,r):
     if re.match(r'"."',r):
-        return m[0] == r[1] and m[1:]
+        return m and m[0] == r[1] and m[1:]
     else:
         for a in rs[r]:
             M = m
