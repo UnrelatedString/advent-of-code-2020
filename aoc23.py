@@ -3,9 +3,15 @@ from functools import *
 import re
 from copy import deepcopy
 
-ls = [l for l in iter(input,'e')]
+cs = [*map(int,input())]
 
-#lgs = '\n'.join(ls).rstrip('\n').split('\n\n')
+for _ in range(100):
+    p = cs[1:4]
+    d = cs[0]-1 or 9
+    while d in p:
+        d -= 1
+        d = d or 9
+    i = cs.index(d)
+    cs = cs[4:i+1]+p+cs[i+1:]+cs[0:1]
 
-
-    
+print(''.join(map(str,cs)))
