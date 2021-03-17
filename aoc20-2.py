@@ -1,164 +1,105 @@
-from itertools import *
-from functools import *
-import re
-from copy import deepcopy
+from random import choice
 
-glen = 3 #12
+class Tile:
+    def __init__(self, grid, tile_id = 0):
+        self.grid = grid
+        self.rotation = 0 # cw
+        self.reflection = False # HORIZONTAL
+        self.id = tile_id
 
-ls = [l for l in iter(input,'e')]
+    @property
+    def rv(self):
+        return (-1)**self.reflection
 
-lgs = '\n'.join(ls).rstrip('\n').split('\n\n')
+    def rotated(self, rotation, reflection):
+        new = Tile(self.grid, self.id)
+        new.rotation = rotation + self.rotation #* self.rv
+        new.reflection = reflection ^ self.reflection
+        return new
 
-ts = {}
-cs = {}
+    def rotated_to(self, direction, matched_side, reflection):
+        reflection ^= self.reflection
+        if reflection:
+            direction ^= (direction&1)<<1
+        rotation = 2 + direction - matched_side
+        return self.rotated(rotation, reflection)
+
+    @property
+    def rotated_grid(self):
+        grid = self.grid
+        for _ in range(self.rotation):
+            grid = [*zip(*grid[::-1])]
+        return [''.join(row[::self.rv]) for row in grid]
+
+    def __str__(self):
+        return f'Tile {self.id}:\n'+'\n'.join(self.rotated_grid)
+
+    def side(self, n):
+        if self.reflection:
+            n ^= (n&1)<<1
+        n -= self.rotation
+        n %= 4
+        if n == 0:
+            return self.grid[0][::self.rv]
+        elif n == 1:
+            return ''.join(row[-1] for row in self.grid)[::-self.rv]
+        elif n == 2:
+            return self.grid[-1][::-self.rv]
+        elif n == 3:
+            return ''.join(row[0] for row in self.grid[::-1])[::-self.rv]
+        else:
+            assert False
+
+tiles_by_id = {}
+
+with open(input('Input file: ')) as f:
+    ls = list(f)
+lgs = '\n'.join(l.rstrip('\n') for l in ls).rstrip('\n').split('\n\n')
 for lg in lgs:
-    lg = lg.split('\n')
-    t = int(re.match(r'Tile (\d+):',lg[0]).groups()[0])
-    ts[t] = (
-        lg[1],
-        ''.join(l[-1] for l in lg[1:]),
-        lg[-1][::-1],
-        ''.join(l[0] for l in lg[:0:-1]))
-    cs[t] = [l[1:-1] for l in lg[2:-1]]
+    n, *grid = lg.split('\n')
+    tile_id = int(n[5:-1])
+    tiles_by_id[tile_id] = Tile(grid, tile_id)
 
-adjs = {}
-for t in ts:
-    a = []
-    for f in ts[t]:
-        a.append([])
-        for T in ts:
-            if T is t: continue
-            for i, F in enumerate(ts[T]):
-                if f == F:
-                    a[-1].append((T,i,False))
-                if f[::-1] == F:
-                    a[-1].append((T,i,True))
-    adjs[t] = tuple(map(tuple,a))
+id_adjacencies = {tile_id: [None, None, None, None] for tile_id in tiles_by_id}
+ids_by_unmatched_sides = {}
 
-S = None
-for t in ts:
-    if adjs[t][0] == adjs[t][3] == ():
-        S = t
-        break
+for tile_id in tiles_by_id:
+    tile = tiles_by_id[tile_id]
+    for n in range(4):
+        side = tile.side(n)
+        if side in ids_by_unmatched_sides:
+            match_id, match_side = ids_by_unmatched_sides.pop(side)
+            id_adjacencies[tile_id][n] = (match_id, match_side, False)
+            id_adjacencies[match_id][match_side] = (tile_id, n, False)
+        elif side[::-1] in ids_by_unmatched_sides:
+            match_id, match_side = ids_by_unmatched_sides.pop(side[::-1])
+            id_adjacencies[tile_id][n] = (match_id, match_side, True)
+            id_adjacencies[match_id][match_side] = (tile_id, n, True)
+        else:
+            ids_by_unmatched_sides[side] = (tile_id, n)
 
-def rot(c,x): #cw
-    for _ in range(x):
-        c = [*zip(*c[::-1])]
-    return c
+tiles_by_coordinates = {(0,0): choice([*tiles_by_id.values()])}
+unvisited = {(0,0)}
+visited = set()
 
-##def gen(s, ors):
-##    try:
-##        o = 0
-##        r = False #vertical flip after rotation
-##        g = [[]]
-##        while len(g) <= 12:
-##            g[-1].append((s,o,r))
-##            if adjs[s][(1-o)%4] and len(g[-1]) < 12:
-##                (s,f,R), = adjs[s][(1-o)%4]
-##                o = (3-f)%4
-##                r ^= R
-##        ##    elif adjs[s][(3-o)%4] and len(g[-1]) < 12: #!?!?!!?!?!??!?!
-##        ##        (s,f,R), = adjs[s][(3-o)%4]
-##        ##        o = (1-f)%4
-##        ##        r ^= R
-##            else:
-##                s,o,r = g[-1][0]
-##                i = (2-o+(2*r))%4
-##                if adjs[s][i]:
-##                    #print(o,r,len(g[-1]))
-##                    (s,f,R), = adjs[s][i]
-##        ##            r ^= R
-##        ##            print(r,R,o,f,len(g[-1]))
-##        ####            if len(g)%2:
-##        ####                f += 2
-##        ####                r ^= 1
-##        ##            o = (-(2*r)-f)%4#(3-adjs[s].index(())-(2*r))%4#((2*r)-f)%4
-##        ##            g.append([])
-##        ####            if len(g) == 12:
-##        ####                print(adjs[s])
-##        ####                o -= 1
-##        ####                r ^= 1
-##        ##            #print(adjs[s],o,r)
-##                    #print(len(g[-1]))
-##                    o, r = ors[len(g)-1]
-##                    g.append([])
-##                else:
-##                    break
-##        if len(g) == 12 and all(len(l) == 12 for l in g) and len(set(chain(*g))) == 144:
-##            yield g
-##    except IndexError as e:
-##        print(e)
-##        pass
-##
-##g = next(chain.from_iterable(map(lambda ors:gen(S,ors),combinations_with_replacement(product(range(4),range(2)),13))))
-
-def row(start):
-    for x in range(8):
-        s = start
-        o = x%4
-        r = x//4
-        g = [(s,o,r)]
-        while adjs[s][(1-o)%4]:
-            (t,f,R), = adjs[s][(1-o)%4]
-            g.append((t,(3-f)%4,r^R))
-            s,o,r = g[-1]
-        if len(g) == glen:
-            yield g
-rows = {}
-for t in ts:
-    rs = row(t)
-    for r in rs:
-        if r[-1][0] != S and t not in rows:
-            rows[t] = r
-        
-
-col = [S]
-for _ in range(glen-1):
-    for a in adjs[col[-1]]:
-        if a and a[0][0] not in [r[0] for r in rows[S]] and a[0][0] in rows and a[0][0] not in col:
-            col.append(a[0][0])
-            break
-
-g = []
-seens = set()
-for c in col:
-    R = []
-    for (t,o,r) in rows[c]:
-        seens.add(t)
-        s = cs[t]
-        s = rot(s,o)
-        if r:
-            s = s[::-1]
-        R.append(s)
-    g.extend(map(list,map(chain.from_iterable,zip(*R))))
-
-# SEA MONSTER TIME
-
-def remove_monsters(grid):
-    inds = (0,1),(1,2),(4,2),(5,1),(6,1),(7,2),(10,2),(11,1),(12,1),(13,2),(16,2),(17,1),(18,0),(18,1),(19,1)
-    for y in range(len(grid)-2):
-        for x in range(len(grid[0])-18):
-            #print('a')
-            for X,Y in inds:
-                if grid[y+Y][x+X] != '#':
-                    break
-            else:
-                print('boom')
-                for X,Y in inds:
-                    grid[y+Y][x+X] = '.'
-
-def roughness(grid):
-    return sum(sum(t == '#' for t in r) for r in grid)
-
-br = roughness(g)
-for x in range(8):
-    o = x%4
-    r = x//4
-    grid = [*map(list,rot(g,o))]
-    if r:
-        grid = grid[::-1]
-    remove_monsters(grid)
-    pr = roughness(grid)
-    #if pr < br:
-    print(pr)
-    
+while unvisited:
+    x, y = unvisited.pop()
+    tile = tiles_by_coordinates[(x, y)]
+    visited.add((x, y))
+    for direction, match in enumerate(id_adjacencies[tile.id]):
+        if match is None:
+            continue
+        neighbor_id, matched_side, reflection = match
+        dx, dy = ((0,1),(1,0),(0,-1),(-1,0))[direction]
+        new_coords = x + dx, y + dy
+        if new_coords in visited:
+            new_tile = tiles_by_id[neighbor_id].rotated_to(direction, matched_side, reflection ^ tile.reflection)
+            if new_tile.rotated_grid != tiles_by_coordinates[new_coords].rotated_grid:
+                print(new_tile)
+                print(tiles_by_coordinates[new_coords])
+                print(new_coords)
+                assert False
+            continue
+        unvisited.add(new_coords)
+        new_tile = tiles_by_id[neighbor_id].rotated_to(direction, matched_side, reflection ^ tile.reflection)
+        tiles_by_coordinates[new_coords] = new_tile
